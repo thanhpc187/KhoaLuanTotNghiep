@@ -1,12 +1,12 @@
 mode: SIMULATION
 version: scope-1
 policy_version: safety-1
-allowed_targets: [fake-hma]
-allowed_profiles: [vulnerable, protected]
-allowed_actions: [reset, deliver, execute, update_ticket]
-timeout_seconds: 10
-max_operations: 8
-max_payload_chars: 2000
-network_enabled: false
+allowed_targets: [fake-hma, langchain-email-target]
+allowed_profiles: [vulnerable, protected, default]
+# Cập nhật danh sách công cụ khớp với LangChain Agent
+allowed_actions: [reset, deliver, execute, update_ticket, write_email, schedule_meeting, check_calendar_availability, Question, Done]
+timeout_seconds: 30 # Tăng timeout vì gọi qua mạng (VMware) sẽ có độ trễ
+max_operations: 15
+max_payload_chars: 4000
+network_enabled: true # QUAN TRỌNG: Mở khóa để Adapter gọi API
 execution_mode: Fixed
-

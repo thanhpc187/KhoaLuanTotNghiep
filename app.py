@@ -28,7 +28,7 @@ with st.sidebar:
     st.header("Tạo Campaign")
     with st.form("campaign_form"):
         target_id = st.selectbox("Target", list(targets), key="target")
-        profile = st.selectbox("Profile", ["vulnerable", "protected"], key="profile")
+        profile = st.selectbox("Profile", ["vulnerable", "protected", "default"], key="profile")
         test_id = st.selectbox("TestSpec", list(tests), key="testspec")
         submitted = st.form_submit_button("Start Campaign")
     if submitted:

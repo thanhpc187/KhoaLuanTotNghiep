@@ -1,7 +1,7 @@
 targets:
-  - id: fake-hma
+  - id: langchain-email-target
     mode: SIMULATION
-    adapter: fake_hma
-    version: fake-hma-1
-    profiles: [vulnerable, protected]
+    adapter: network_langchain_adapter
+    version: '1.0'
+    profiles: [default]
 

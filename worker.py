@@ -52,6 +52,10 @@ def process_next(db: Database, adapter_factory=None) -> str | None:
     campaign = db.claim()
     if campaign is None:
         return None
+    if campaign.target.adapter == "network_langchain_adapter":
+        # Import class adapter bạn đã viết ở bước trước
+        from agent_pentest.execution.network_langchain_adapter import NetworkLangChainAdapter
+        adapter_factory = NetworkLangChainAdapter
     kwargs = {"adapter_factory": adapter_factory} if adapter_factory else {}
     try:
         CampaignWorkflow(db, campaign, **kwargs).invoke()
