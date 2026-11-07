@@ -1,0 +1,7 @@
+targets:
+  - id: fake-hma
+    mode: SIMULATION
+    adapter: fake_hma
+    version: fake-hma-1
+    profiles: [vulnerable, protected]
+

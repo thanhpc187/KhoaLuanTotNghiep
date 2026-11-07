@@ -1,0 +1,8 @@
+{
+  "mode": "SIMULATION",
+  "attempt_id": "bd38bcd1-0fc2-4a7b-a93c-e293990c8881",
+  "sha256": "414f115a29bdf6f66a9cb6d9fdfcd58a0c9ce341bbd2a9903d5c51488badc38a",
+  "event_count": 8,
+  "quarantined": 0,
+  "note": "Hash checks integrity after collection, not source authenticity."
+}

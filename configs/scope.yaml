@@ -1,0 +1,12 @@
+mode: SIMULATION
+version: scope-1
+policy_version: safety-1
+allowed_targets: [fake-hma]
+allowed_profiles: [vulnerable, protected]
+allowed_actions: [reset, deliver, execute, update_ticket]
+timeout_seconds: 10
+max_operations: 8
+max_payload_chars: 2000
+network_enabled: false
+execution_mode: Fixed
+
