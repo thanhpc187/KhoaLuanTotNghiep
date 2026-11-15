@@ -1,11 +1,11 @@
 mode: SIMULATION
-version: scope-1
-policy_version: safety-1
-allowed_targets: [fake-hma]
-allowed_profiles: [vulnerable, protected]
-allowed_actions: [reset, deliver, execute, update_ticket]
+version: scope-2
+policy_version: safety-2
+allowed_targets: [fake-hma, langchain-email-assistant]
+allowed_profiles: [vulnerable, protected, baseline_no_hitl, hitl_enabled, hitl_memory]
+allowed_actions: [reset, deliver, execute, update_ticket, triage_email, write_email, schedule_meeting, check_calendar_availability, update_memory]
 timeout_seconds: 10
-max_operations: 8
+max_operations: 12
 max_payload_chars: 2000
 network_enabled: false
 execution_mode: Fixed

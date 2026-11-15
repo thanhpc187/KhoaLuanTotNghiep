@@ -1,0 +1,11 @@
+# Copy to configs/live_model.local.yaml and enter your provider URL and model ID.
+# No credentials in this file; environment variable name only.
+backend: compatible_chat
+base_url: https://provider.example.invalid/v1
+allowed_base_urls: [https://provider.example.invalid/v1]
+model: CHANGE_ME
+api_key_env: AGENT_PENTEST_LLM_API_KEY
+require_api_key: true
+temperature: 0.0
+max_tokens: 2048
+timeout_seconds: 45

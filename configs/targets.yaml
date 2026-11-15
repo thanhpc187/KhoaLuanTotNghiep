@@ -4,4 +4,9 @@ targets:
     adapter: fake_hma
     version: fake-hma-1
     profiles: [vulnerable, protected]
+  - id: langchain-email-assistant
+    mode: SIMULATION
+    adapter: langgraph_email_assistant
+    version: agents-from-scratch-603fc7a
+    profiles: [baseline_no_hitl, hitl_enabled, hitl_memory]
 

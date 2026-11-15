@@ -1,0 +1,13 @@
+# Separate optional pentest-role LLM. Default worker behavior remains fixed roles.
+backend: compatible_chat
+fallback: reject
+model_config:
+  backend: compatible_chat
+  base_url: https://provider.example.invalid/v1
+  allowed_base_urls: [https://provider.example.invalid/v1]
+  model: CHANGE_ME
+  api_key_env: AGENT_PENTEST_ROLE_API_KEY
+  require_api_key: true
+  temperature: 0.0
+  max_tokens: 2048
+  timeout_seconds: 30

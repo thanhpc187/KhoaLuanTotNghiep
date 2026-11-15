@@ -1,0 +1,8 @@
+{
+  "mode": "INTEGRATION_TEST",
+  "attempt_id": "261bb6bf-05b3-40d3-8b7c-85249fe61e5e",
+  "sha256": "a0146374ea75c7e9b328c0b0ce43feb05d2272a186f346ef14f9452b13f3390c",
+  "event_count": 18,
+  "quarantined": 0,
+  "note": "Hash checks integrity after collection, not source authenticity."
+}

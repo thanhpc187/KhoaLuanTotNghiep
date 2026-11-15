@@ -6,4 +6,6 @@ __pycache__/
 .env
 runtime/*
 !runtime/.gitkeep
-
+work/
+configs/*.local.yaml
+lab-runtime/

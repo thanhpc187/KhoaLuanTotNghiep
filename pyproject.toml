@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-pentest-mvp"
-version = "0.1.0"
-description = "SIMULATION-only vertical slice for AI Agent pentest research"
+version = "0.3.1"
+description = "Controlled AI Agent pentest research with simulation and registered lab runtimes"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "langgraph>=1.0,<2",
   "pydantic>=2.10,<3",
   "PyYAML>=6.0,<7",
   "streamlit>=1.42,<2",
+  "httpx>=0.28,<1",
 ]
 
 [project.optional-dependencies]

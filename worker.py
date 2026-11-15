@@ -11,8 +11,9 @@ os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["LANGSMITH_OTEL_ENABLED"] = "false"
 
 from agent_pentest.control.catalogue import Catalogue
-from agent_pentest.control.workflow import CampaignWorkflow
+from agent_pentest.control.workflow import run_campaign
 from agent_pentest.evidence.reporting import generate_reports
+from agent_pentest.models.schemas import Profile
 from agent_pentest.service import project_root, runtime_path, submit_campaign
 from agent_pentest.storage.database import Database
 
@@ -54,30 +55,52 @@ def process_next(db: Database, adapter_factory=None) -> str | None:
         return None
     kwargs = {"adapter_factory": adapter_factory} if adapter_factory else {}
     try:
-        CampaignWorkflow(db, campaign, **kwargs).invoke()
+        run_campaign(db, campaign, **kwargs)
     except Exception:
         # Keep target lock on unexpected failure. Explicit recovery requires OS worker ownership.
-        db.finish(campaign.id, "FAILED", "Unexpected workflow/storage failure; target lock retained.", release=False)
+        previous = db.detail(campaign.id)["error"]
+        message = "Unexpected workflow/storage failure; target lock retained."
+        db.finish(campaign.id, "FAILED", f"{previous} | {message}" if previous else message, release=False)
         raise
     return campaign.id
 
 
 def recover(db: Database):
-    # This function is invoked only under worker_lock in main(). Fake has no external state.
+    # Invoked under worker_lock; remote jobs must confirm termination before release.
     for campaign_id in db.interrupted():
-        db.abandon_interrupted(campaign_id)
+        detail = db.detail(campaign_id)
+        if detail["campaign"]["target"]["adapter"] == "langgraph_runtime":
+            from agent_pentest.models.schemas import Campaign
+            from agent_pentest.control.registry import RuntimeClient
+            campaign = Campaign.model_validate(detail["campaign"])
+            try:
+                confirmed = RuntimeClient(campaign.target.registration, campaign.scope.allowed_endpoints).request(
+                    "/reconcile", {"instance_id": campaign.target.registration.runtime_instance, "campaign_id": campaign_id})["confirmed"]
+            except Exception:
+                confirmed = False
+            if not confirmed:
+                db.finish(campaign_id, "FAILED", (detail["error"] or "") + " | STOP_UNCONFIRMED: target remains locked.", release=False)
+                continue
+        error_msg = db.abandon_interrupted(campaign_id)
         reports = generate_reports(db, campaign_id)
-        db.finish(campaign_id, "FAILED", "Worker interrupted; no action replayed.", reports)
-        print(f"SIMULATION recovered {campaign_id}: FAILED, no replay", flush=True)
+        db.finish(campaign_id, "FAILED", error_msg, reports, release=True)
+        print(f"{detail['campaign']['mode']} recovered {campaign_id}: FAILED, no replay", flush=True)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SIMULATION-only AI Agent pentest worker")
+    parser = argparse.ArgumentParser(description="Controlled AI Agent pentest worker")
     parser.add_argument("--runtime", type=Path)
     parser.add_argument("--init-db", action="store_true")
     parser.add_argument("--once", action="store_true", help="Process at most one queued Campaign")
-    parser.add_argument("--recover-interrupted", action="store_true", help="Close interrupted Fake campaigns without replay")
-    parser.add_argument("--enqueue", choices=["vulnerable", "protected"], help="Queue a campaign, then exit")
+    parser.add_argument("--recover-interrupted", action="store_true", help="Reconcile interrupted lab campaigns without replay")
+    parser.add_argument("--enqueue", choices=[p.value for p in Profile], help="Queue a campaign, then exit")
+    parser.add_argument("--target", default="fake-hma")
+    parser.add_argument("--testspec", default="ASI02-HMA-001")
+    parser.add_argument("--testspecs", nargs="+")
+    parser.add_argument("--repetitions", type=int, default=1)
+    parser.add_argument("--check-targets", action="store_true")
+    parser.add_argument("--register-target", type=Path)
+    parser.add_argument("--roles-config", type=Path)
     parser.add_argument("--request-key", help="Required with --enqueue; repeated keys are idempotent")
     args = parser.parse_args()
     db = Database(args.runtime or runtime_path())
@@ -85,12 +108,28 @@ def main():
     if args.init_db:
         print(f"Initialized {db.path}")
         return
+    if args.check_targets:
+        from agent_pentest.control.registry import process_registry_checks
+        process_registry_checks(db, project_root())
+        return
+    if args.register_target:
+        import yaml
+        from agent_pentest.control.registry import register_target
+        from agent_pentest.models.schemas import RegisteredTarget
+        reg = RegisteredTarget.model_validate(yaml.safe_load(args.register_target.read_text(encoding="utf-8")))
+        register_target(db, project_root(), reg)
+        print(f"Registered {reg.target_id}; run --check-targets.")
+        return
     if args.enqueue:
+        import yaml
+        roles = yaml.safe_load(args.roles_config.read_text(encoding="utf-8")) if args.roles_config else None
         if not args.request_key:
             parser.error("--enqueue requires --request-key")
-        campaign_id, created = submit_campaign(db, Catalogue(project_root()), "fake-hma", args.enqueue,
-                                               "ASI02-HMA-001", args.request_key)
-        print(f"SIMULATION {campaign_id} created={created}")
+        campaign_id, created = submit_campaign(db, Catalogue(project_root()), args.target, args.enqueue,
+                                               args.testspec, args.request_key, test_ids=args.testspecs or (),
+                                               repetitions=args.repetitions, role_config=roles,
+                                               timeout_seconds=180 if args.target not in ("fake-hma", "langchain-email-assistant") else None)
+        print(f"{db.detail(campaign_id)['campaign']['mode']} {campaign_id} created={created}")
         return
     try:
         with worker_lock(db.runtime):
@@ -100,10 +139,13 @@ def main():
             if db.interrupted():
                 raise RuntimeError("Interrupted campaigns found; run --recover-interrupted before continuing.")
             while True:
+                from agent_pentest.control.registry import process_registry_checks
+                process_registry_checks(db, project_root())
                 db.heartbeat()
                 campaign_id = process_next(db)
                 if campaign_id:
-                    print(f"SIMULATION {campaign_id}: {db.detail(campaign_id)['status']}", flush=True)
+                    detail = db.detail(campaign_id)
+                    print(f"{detail['campaign']['mode']} {campaign_id}: {detail['status']}", flush=True)
                 if args.once:
                     return
                 if not campaign_id:

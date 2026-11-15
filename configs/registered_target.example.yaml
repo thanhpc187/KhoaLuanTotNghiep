@@ -1,0 +1,13 @@
+target_id: my-email-agent
+target_name: Email Agent — LangGraph
+target_type: langgraph_email
+source_repository: https://github.com/langchain-ai/agents-from-scratch
+source_revision: 603fc7a4ac6119004f43894395e504a1fefcc6c0
+runtime_mode: local_endpoint
+endpoint: http://127.0.0.1:8765
+graph_entrypoint: email_assistant
+supported_profiles: [baseline_no_hitl]
+allowed_input_surfaces: [email_input.email_thread]
+adapter_type: langgraph_runtime
+isolation_policy: sandbox_tools_process
+token_env: AGENT_PENTEST_RUNTIME_TOKEN

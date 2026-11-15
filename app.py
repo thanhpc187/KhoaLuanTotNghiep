@@ -4,20 +4,57 @@ from uuid import uuid4
 
 import streamlit as st
 
-from agent_pentest.control.catalogue import Catalogue
+from agent_pentest.control.catalogue import Catalogue, applicability
+from agent_pentest.control.registry import register_target, registered_config, PROFILE_GRAPHS
+from agent_pentest.models.schemas import RegisteredTarget, CapabilityRecord
 from agent_pentest.evidence.store import EvidenceStore
 from agent_pentest.service import project_root, runtime_path, submit_campaign
 from agent_pentest.storage.database import Database
 
-st.set_page_config(page_title="AI Agent Pentest | SIMULATION", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="AI Agent Pentest", page_icon="🧪", layout="wide")
 st.title("AI Agent Pentest")
-st.warning("SIMULATION — Fake HMA chạy theo quy tắc cố định. Kết quả không chứng minh khai thác AI Agent thật.")
+st.caption("Chế độ bằng chứng: SIMULATION · INTEGRATION_TEST · LIVE_LLM_LAB. Email/calendar luôn nằm trong sandbox.")
 
 root = project_root()
 db = Database(runtime_path(root))
 db.initialize()
 catalogue = Catalogue(root)
 targets, tests = catalogue.targets(), catalogue.tests()
+registrations = {r["id"]: r for r in db.registry_entries()}
+for rid, registration in registrations.items():
+    if registration["status"] == "READY":
+        targets[rid] = registered_config(db, rid)
+page = st.radio("Trang", ["New Campaign", "Targets", "Campaign Progress", "Findings and Evidence"], horizontal=True, key="page")
+
+if page == "Targets":
+    st.subheader("Targets — Đăng ký lab")
+    st.caption("Chỉ nhận runtime lab protocol đã kiểm tra; repository URL là provenance, không phải attack endpoint.")
+    with st.form("register_target"):
+        rid = st.text_input("Target ID", "my-email-agent")
+        name = st.text_input("Target name", "Email Agent — LangGraph")
+        connection = st.selectbox("Connection mode", ["local_endpoint", "local_repository"])
+        endpoint = st.text_input("Runtime endpoint", "http://127.0.0.1:8765")
+        local_path = st.text_input("Approved local checkout", str(root / "third_party/agents_from_scratch"))
+        selected_profile = st.selectbox("Graph profile", list(PROFILE_GRAPHS))
+        st.text_input("Source repository", "https://github.com/langchain-ai/agents-from-scratch", disabled=True)
+        registered = st.form_submit_button("Register and request check")
+    if registered:
+        try:
+            reg = RegisteredTarget(target_id=rid, target_name=name, endpoint=endpoint, runtime_mode=connection,
+                local_project_path=local_path if connection == "local_repository" else None,
+                graph_entrypoint=PROFILE_GRAPHS[selected_profile], supported_profiles=(selected_profile,))
+            register_target(db, root, reg)
+            st.success("Đã lưu yêu cầu kiểm tra. Worker sẽ kết nối và ghi kết quả.")
+        except (ValueError, OSError):
+            st.error("Target không hợp lệ, trùng ID hoặc nằm ngoài allowlist. Kiểm tra cấu hình lab.")
+    for row in db.registry_entries():
+        st.write(f"**{row['id']}** · {row['status']}")
+        if row["error"]:
+            st.warning(row["error"])
+        st.json({"registration": row["data"], "capabilities": row["capabilities"]}, expanded=False)
+        if st.button("Request connection check", key="check-" + row["id"]):
+            db.request_registry_check(row["id"])
+            st.info("Đã gửi yêu cầu kiểm tra lại cho worker.")
 
 # URL request token survives a browser refresh and is protected by UNIQUE(request_key) in SQLite.
 if "request" not in st.query_params:
@@ -26,15 +63,40 @@ request_key = str(st.query_params["request"])
 
 with st.sidebar:
     st.header("Tạo Campaign")
+    # Target must rerun immediately so dependent profile choices update before submit.
+    target_id = st.selectbox("Target", list(targets), key="target")
+    profiles = [p.value for p in targets[target_id].profiles]
+    if st.session_state.get("profile") not in profiles:
+        st.session_state["profile"] = profiles[0]
+    compatible = [key for key, spec in tests.items()
+                  if (spec.email_input is not None) == (targets[target_id].adapter != "fake_hma")]
+    st.caption("Evidence mode: " + targets[target_id].mode)
     with st.form("campaign_form"):
-        target_id = st.selectbox("Target", list(targets), key="target")
-        profile = st.selectbox("Profile", ["vulnerable", "protected"], key="profile")
-        test_id = st.selectbox("TestSpec", list(tests), key="testspec")
+        profile = st.selectbox("Profile", profiles, key="profile")
+        test_id = st.selectbox("TestSpec", compatible, key="testspec")
+        extra_tests = st.multiselect("Additional TestSpecs", compatible, key="extra_tests")
+        repetitions = st.number_input("Repetitions", 1, 10, 1)
+        attack_surface = st.selectbox("Attack surface", ["email_input.email_thread"])
+        st.selectbox("Execution mode", ["Fixed"], disabled=True)
+        st.caption("Exploratory chưa hỗ trợ: payload Fixed không thay đổi theo kết quả.")
+        timeout = st.number_input("Timeout per Attempt (seconds)", 1, 600, 120 if targets[target_id].registration else 10)
+        budget = st.number_input("Max operations per Attempt", 1, 100, 12)
+        authorized = st.checkbox("Tôi xác nhận target thuộc lab được phép kiểm thử.", value=targets[target_id].registration is None)
         submitted = st.form_submit_button("Start Campaign")
     if submitted:
         try:
-            campaign_id, created = submit_campaign(db, catalogue, target_id, profile, test_id, request_key)
+            if not authorized:
+                raise ValueError("Authorized lab scope must be confirmed.")
+            selection = tuple(dict.fromkeys([test_id, *extra_tests]))
+            if target_id in registrations:
+                cap = CapabilityRecord.model_validate(registrations[target_id]["capabilities"][profile])
+                if any(applicability(tests[sid], cap)[0] != "APPLICABLE" for sid in selection):
+                    raise ValueError("Selection includes unsupported or unknown capabilities.")
+            campaign_id, created = submit_campaign(db, catalogue, target_id, profile, test_id, request_key,
+                test_ids=selection if extra_tests else (), repetitions=repetitions, attack_surface=attack_surface,
+                timeout_seconds=timeout, max_operations=budget)
             st.session_state["selected_campaign"] = campaign_id
+            st.session_state["campaign_picker"] = campaign_id
             st.success("Đã đưa vào hàng đợi." if created else "Yêu cầu này đã tồn tại; mở lại Campaign.")
         except (ValueError, KeyError):
             st.error("Khóa yêu cầu đã gắn với cấu hình khác hoặc cấu hình không hợp lệ. Chọn Tạo yêu cầu mới để chạy lần khác.")
@@ -43,6 +105,10 @@ with st.sidebar:
         st.rerun()
     st.caption("Start Campaign gửi lại cùng yêu cầu sẽ không tạo hoặc thực thi trùng.")
     st.json(catalogue.scope().model_dump(mode="json"), expanded=False)
+    if target_id in registrations:
+        cap = CapabilityRecord.model_validate(registrations[target_id]["capabilities"][st.session_state["profile"]])
+        st.write("Verified attack surfaces", cap.attack_surfaces)
+        st.dataframe([{"TestSpec": sid, "Applicability": applicability(tests[sid], cap)[0]} for sid in compatible])
 
 
 @st.fragment(run_every="2s")
@@ -59,8 +125,12 @@ def campaign_view():
         return
     ids = [c["id"] for c in campaigns]
     wanted = st.session_state.get("selected_campaign", ids[0])
+    if st.session_state.get("campaign_picker") not in ids:
+        st.session_state["campaign_picker"] = wanted if wanted in ids else ids[0]
     campaign_id = st.selectbox("Campaign", ids, index=ids.index(wanted) if wanted in ids else 0,
+        key="campaign_picker",
         format_func=lambda value: f"{value[:8]} · {next(c['status'] for c in campaigns if c['id'] == value)}")
+    st.session_state["selected_campaign"] = campaign_id
     detail = db.detail(campaign_id)
     st.subheader(f"Campaign {campaign_id[:8]}")
     a, b, c = st.columns(3)
@@ -69,6 +139,17 @@ def campaign_view():
     c.metric("Bước", detail["stage"])
     if detail["error"]:
         st.error(detail["error"])
+    st.caption("Evidence mode: " + detail["campaign"]["mode"])
+    elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(detail["campaign"]["created_at"])).total_seconds()
+    st.caption(f"Thời gian từ enqueue: {elapsed:.1f}s · Cancel requested: {db.cancelled(campaign_id)}")
+    if detail["status"] in ("PENDING", "RUNNING"):
+        if st.button("Cancel / Stop", key="cancel-" + campaign_id):
+            db.request_cancel(campaign_id)
+            st.info("Đã lưu yêu cầu dừng. Worker sẽ xác nhận trạng thái stop.")
+    for entry in detail["attempts"]:
+        progress = db.live_progress(entry["id"])
+        if progress:
+            st.json({"attempt_id": entry["id"], **progress}, expanded=False)
     result_tab, execution_tab, evidence_tab, report_tab = st.tabs(["Verdict / Finding", "Run / Attempt", "Evidence", "Báo cáo"])
     with result_tab:
         for entry in detail["results"]:
@@ -85,18 +166,29 @@ def campaign_view():
         st.dataframe(detail["audit"], width="stretch")
     with evidence_tab:
         for entry in detail["attempts"]:
-            bundle = EvidenceStore(db.runtime).read(entry["id"])
+            store = EvidenceStore(db.runtime)
+            if entry["status"] == "RUNNING" and not (store.directory(entry["id"]) / "events.jsonl").exists():
+                st.info(f"{entry['id']} — Đang chờ thu thập bằng chứng.")
+                continue
+            bundle = store.read(entry["id"])
             st.caption(f"{entry['id']} — {bundle.reason}")
             st.json([event.model_dump(mode="json") for event in bundle.events], expanded=False)
+            st.dataframe([{"sequence": e.sequence, "kind": e.kind, "operation_id": e.operation_id,
+                           "phase": e.data.get("phase")} for e in bundle.events])
+            before, after = st.columns(2)
+            before.write("State before")
+            before.json(next((e.data for e in bundle.events if e.kind == "state_before"), {}), expanded=False)
+            after.write("State after")
+            after.json(next((e.data for e in bundle.events if e.kind == "state_after"), {}), expanded=False)
     with report_tab:
-        st.caption("Báo cáo luôn ghi rõ SIMULATION; utility chưa bao gồm phép thử đối chứng riêng.")
+        st.caption("Báo cáo ghi rõ mode/backend, source revision và evidence. BENIGN cung cấp phép thử đối chứng.")
         for kind, mime in (("json", "application/json"), ("html", "text/html")):
             relative = detail[f"report_{kind}"]
             if relative:
                 path = (db.runtime / relative).resolve()
                 if path.is_relative_to(db.runtime) and path.is_file():
                     st.download_button(f"Download {kind.upper()}", path.read_bytes(),
-                                       f"simulation-{campaign_id}.{kind}", mime=mime,
+                                       f"{detail['campaign']['mode'].lower()}-{campaign_id}.{kind}", mime=mime,
                                        key=f"download-{kind}-{campaign_id}")
 
 

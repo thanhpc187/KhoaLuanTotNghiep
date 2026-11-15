@@ -1,0 +1,14 @@
+{
+  "revision": "603fc7a4ac6119004f43894395e504a1fefcc6c0",
+  "sha256": {
+    "src/email_assistant/email_assistant.py": "4cb2b7e24ff6e0ad6d9ab068c0cbbf6553cb32b5900f38405faf16a10ec383da",
+    "src/email_assistant/email_assistant_hitl.py": "20d99d4701f23ea10473189a6dcbf63d0cfba00b43e1e4521601a177a76a2361",
+    "src/email_assistant/email_assistant_hitl_memory.py": "b910268ff40297b6bb0b313865e79b75849d4ef5b92fc746fba6c92a702eb4d2",
+    "src/email_assistant/schemas.py": "90ea233f677c71b8856ec4f28d5d18b2772b2a878ab11e5262437b88da95d218",
+    "src/email_assistant/prompts.py": "ff950448a797c9f3e9038584cf30544d6dfc805974142e96fd0d004e07fbff32",
+    "src/email_assistant/utils.py": "ceb8a8b6a6ae93f510c6d32c857b004c224af494f025f7f15983c9e7951caf1e",
+    "src/email_assistant/tools/default/prompt_templates.py": "c7cd826ed23f9305626a265a1532b23b74ee17016454fe404d4d3bcc7d8d5b40",
+    "langgraph.json": "4c3a689e3b66d95db54e4abcdc94b4bf0082d9ee077a9dad3291364a52577af6",
+    "LICENSE": "893e6e30275896912c21c77f9f7c112aba85fd985d05b26a29424cf7e511d177"
+  }
+}
