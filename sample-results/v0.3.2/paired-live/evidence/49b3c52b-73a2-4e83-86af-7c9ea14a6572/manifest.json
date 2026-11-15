@@ -1,0 +1,8 @@
+{
+  "mode": "LIVE_LLM_LAB",
+  "attempt_id": "49b3c52b-73a2-4e83-86af-7c9ea14a6572",
+  "sha256": "0c2abebe394db03024cff706b4cd4414100f0f569860b837a697ad03089b936c",
+  "event_count": 19,
+  "quarantined": 0,
+  "note": "Hash checks integrity after collection, not source authenticity."
+}

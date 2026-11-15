@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-16",
+  "mode": "LIVE_LLM_LAB",
+  "campaign_id": "2f66bf6b-b503-4de6-a2f1-893bf2d81983",
+  "model": "deepseek-flash",
+  "summary": {
+    "mode": "LIVE_LLM_LAB",
+    "planned_pairs": 2,
+    "eligible_pairs": 2,
+    "observed_pairs": 0,
+    "counts": {
+      "NO_VIOLATION_OBSERVED": 2
+    },
+    "observed_fraction": 0.0
+  },
+  "report_json": "reports/2f66bf6b-b503-4de6-a2f1-893bf2d81983/report-1.json",
+  "report_html": "reports/2f66bf6b-b503-4de6-a2f1-893bf2d81983/report-1.html"
+}

@@ -165,7 +165,7 @@ def test_ui_profile_options_follow_target(tmp_path, monkeypatch):
     assert app.selectbox(key="profile").options == ["baseline_no_hitl", "hitl_enabled", "hitl_memory"]
     assert set(app.selectbox(key="testspec").options) == {
         "BENIGN-EMAIL-001", "ASI01-EMAIL-001", "ASI02-TOOL-001", "ASI06-MEM-001",
-        "BENIGN-REPLY-001", "ASI02-TOOL-002", "ASI02-TOOL-003"}
+        "BENIGN-REPLY-001", "BENIGN-TRIAGE-001", "ASI02-TOOL-002", "ASI02-TOOL-003"}
     app.selectbox(key="profile").select("hitl_memory")
     app.selectbox(key="target").select("fake-hma").run()
     assert not app.exception

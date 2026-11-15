@@ -75,6 +75,7 @@ with st.sidebar:
         profile = st.selectbox("Profile", profiles, key="profile")
         test_id = st.selectbox("TestSpec", compatible, key="testspec")
         extra_tests = st.multiselect("Additional TestSpecs", compatible, key="extra_tests")
+        paired = st.checkbox("Chạy đối chứng sạch / payload", key="paired", help="Tự thêm control_id; reset riêng từng Attempt. Hỗ trợ ASI01 và ASI02 đã khai báo đối chứng.")
         repetitions = st.number_input("Repetitions", 1, 10, 1)
         attack_surface = st.selectbox("Attack surface", ["email_input.email_thread"])
         st.selectbox("Execution mode", ["Fixed"], disabled=True)
@@ -92,14 +93,19 @@ with st.sidebar:
                 cap = CapabilityRecord.model_validate(registrations[target_id]["capabilities"][profile])
                 if any(applicability(tests[sid], cap)[0] != "APPLICABLE" for sid in selection):
                     raise ValueError("Selection includes unsupported or unknown capabilities.")
+            if paired:
+                from agent_pentest.control.pairing import expand_controls
+                expanded = expand_controls(tuple(tests[sid] for sid in selection), tests)
+                if target_id in registrations and any(applicability(spec, cap)[0] != "APPLICABLE" for spec in expanded):
+                    raise ValueError("A clean control is unsupported by this target.")
             campaign_id, created = submit_campaign(db, catalogue, target_id, profile, test_id, request_key,
                 test_ids=selection if extra_tests else (), repetitions=repetitions, attack_surface=attack_surface,
-                timeout_seconds=timeout, max_operations=budget)
+                timeout_seconds=timeout, max_operations=budget, paired=paired)
             st.session_state["selected_campaign"] = campaign_id
             st.session_state["campaign_picker"] = campaign_id
             st.success("Đã đưa vào hàng đợi." if created else "Yêu cầu này đã tồn tại; mở lại Campaign.")
         except (ValueError, KeyError):
-            st.error("Khóa yêu cầu đã gắn với cấu hình khác hoặc cấu hình không hợp lệ. Chọn Tạo yêu cầu mới để chạy lần khác.")
+            st.error("Yêu cầu trùng hoặc cấu hình không hợp lệ. Đối chứng cần ASI01/ASI02 có control_id, không chọn ca sạch không liên quan. Chọn Tạo yêu cầu mới để chạy lần khác.")
     if st.button("Tạo yêu cầu mới", key="new_request"):
         st.query_params["request"] = str(uuid4())
         st.rerun()
@@ -150,7 +156,28 @@ def campaign_view():
         progress = db.live_progress(entry["id"])
         if progress:
             st.json({"attempt_id": entry["id"], **progress}, expanded=False)
-    result_tab, execution_tab, evidence_tab, report_tab = st.tabs(["Verdict / Finding", "Run / Attempt", "Evidence", "Báo cáo"])
+    result_tab, execution_tab, evidence_tab, report_tab, comparison_tab = st.tabs(["Verdict / Finding", "Run / Attempt", "Evidence", "Báo cáo", "Đối chứng sạch / payload"])
+    with comparison_tab:
+        if not detail["campaign"].get("paired"):
+            st.info("Campaign này chưa bật đối chứng. Tạo yêu cầu mới, chọn ASI01/ASI02 và bật Chạy đối chứng sạch / payload.")
+        else:
+            from agent_pentest.evidence.comparison import compare_campaign
+            comparison = compare_campaign(detail, db.runtime)
+            st.json(comparison["summary"])
+            st.caption("Baseline = agent đã xử lý email sạch; state_before chỉ là snapshot sau reset. Không suy ra nhân quả từ một cặp LLM ngẫu nhiên.")
+            for pair in comparison["pairs"]:
+                st.write(f"{pair['control_id']} → {pair['attack_id']} · lần {pair['repetition']} · **{pair['status']}**")
+                st.write(pair.get("reason", ""))
+                st.code(pair.get("input_diff", ""), language="diff")
+                left, right = st.columns(2)
+                for column, side, label in ((left, "control", "Email sạch"), (right, "attack", "Có payload")):
+                    arm = pair.get(side, {})
+                    column.write(label)
+                    column.json({k: arm.get(k) for k in ("attempt_id", "security", "utility", "execution", "final_state", "evidence_ref")}, expanded=True)
+                    with column.expander("Trace: proposal → call → effect"):
+                        st.json(arm.get("trace", []))
+                st.write("Khác biệt hành động đầu tiên (không tự đồng nghĩa với khai thác):")
+                st.json(pair.get("first_behavior_difference"))
     with result_tab:
         for entry in detail["results"]:
             result = entry["data"]

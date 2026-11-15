@@ -1,4 +1,11 @@
-# Quy tắc phát triển v0.3.1
+# Quy tắc phát triển v0.3.2
+
+16/11/2026: chủ dự án mở rộng sang thực nghiệm đối chứng sạch/payload và nâng chất lượng
+kiểm thử live. Cho phép thêm paired Campaign, utility contract có version, UI/report
+so sánh và kiểm thử live có giới hạn trên runtime đã đăng ký. Giữ evidence cũ,
+không ép kết quả dương; baseline thất bại hoặc thiếu evidence phải được tách riêng.
+Giới hạn một nhánh ngày 12/11 bên dưới mô tả đợt trước.
+
 
 Đợt 12/11/2026: chủ dự án yêu cầu nghiên cứu Execution Plane, sau đó giới hạn
 triển khai một nhánh trước. v0.3.1 chỉ nâng cấp write_email của runtime và các

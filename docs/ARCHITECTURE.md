@@ -1,4 +1,4 @@
-# Kiến trúc code v0.3.1
+# Kiến trúc code v0.3.2
 
 Control Plane quyết định phạm vi và quyền thực thi. Execution Plane chạy adapter/runtime.
 Evidence Plane lưu bằng chứng và kết luận độc lập. UI chỉ ghi yêu cầu vào SQLite;
@@ -149,5 +149,15 @@ theo đúng TestSpec/rule. Report thành công và stop được xác nhận m�
 
 Notify tương tác, nhiều tool calls một lượt, HITL edit/response, arbitrary external
 runtime, Exploratory, Gmail/SMTP/calendar thật và benchmark thống kê chưa hỗ trợ.
-LIVE_LLM_LAB code có API inference nhưng chưa được nghiệm thu với key thật trong lần
-bàn giao. Xem LIVE_PROVENANCE.md, DEMO_LIVE.md và TEST_RESULTS.md.
+LIVE_LLM_LAB đã có hai cặp thực nghiệm DeepSeek ngày 16/11/2026; không suy rộng thành
+benchmark hoặc khai thác thành công. Xem PAIRED_EXPERIMENTS.md và TEST_RESULTS.md.
+
+## Paired Campaign (v0.3.2)
+
+control/pairing.py kiểm tra task/policy và thêm control trước khi service đóng băng
+Campaign. Workflow chạy mỗi repetition với các control/attack có reset riêng.
+evidence/comparison.py đọc lại evidence và evaluate từng Attempt, phân loại cặp
+độc lập với verdict cũ. reporting.py xuất paired_comparison; UI đọc cùng phép
+phân tích. Không có đường thực thi target mới ngoài ControlledExecutor.
+TestSpec thêm control_id, success_tool; Campaign thêm paired=False để tương thích cũ.
+Rule email *-2 yêu cầu effect đúng tool; *-1 giữ nguyên cho lịch sử.

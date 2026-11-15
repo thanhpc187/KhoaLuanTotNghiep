@@ -1,0 +1,19 @@
+# Keep reviewed source bytes stable on Windows for SHA-256 verification.
+third_party/agents_from_scratch/src/email_assistant/email_assistant.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/email_assistant_hitl.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/email_assistant_hitl_memory.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/schemas.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/prompts.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/utils.py text eol=lf
+third_party/agents_from_scratch/src/email_assistant/tools/default/prompt_templates.py text eol=lf
+third_party/agents_from_scratch/langgraph.json text eol=lf
+third_party/agents_from_scratch/LICENSE text eol=lf
+upstream/agents-from-scratch/src/email_assistant/email_assistant.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/email_assistant_hitl.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/email_assistant_hitl_memory.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/schemas.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/prompts.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/utils.py text eol=lf
+upstream/agents-from-scratch/src/email_assistant/tools/default/prompt_templates.py text eol=lf
+upstream/agents-from-scratch/langgraph.json text eol=lf
+upstream/agents-from-scratch/LICENSE text eol=lf

@@ -98,6 +98,7 @@ def main():
     parser.add_argument("--testspec", default="ASI02-HMA-001")
     parser.add_argument("--testspecs", nargs="+")
     parser.add_argument("--repetitions", type=int, default=1)
+    parser.add_argument("--paired", action="store_true", help="Include matched clean controls and compare independent Attempts")
     parser.add_argument("--check-targets", action="store_true")
     parser.add_argument("--register-target", type=Path)
     parser.add_argument("--roles-config", type=Path)
@@ -126,7 +127,7 @@ def main():
         if not args.request_key:
             parser.error("--enqueue requires --request-key")
         campaign_id, created = submit_campaign(db, Catalogue(project_root()), args.target, args.enqueue,
-                                               args.testspec, args.request_key, test_ids=args.testspecs or (),
+                                               args.testspec, args.request_key, test_ids=args.testspecs or (), paired=args.paired,
                                                repetitions=args.repetitions, role_config=roles,
                                                timeout_seconds=180 if args.target not in ("fake-hma", "langchain-email-assistant") else None)
         print(f"{db.detail(campaign_id)['campaign']['mode']} {campaign_id} created={created}")

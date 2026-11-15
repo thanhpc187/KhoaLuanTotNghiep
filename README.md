@@ -50,7 +50,7 @@ ai-agent-pentest/
 │   ├── storage/            # SQLite
 │   └── service.py          # Nạp cấu hình và tạo yêu cầu
 ├── configs/                # Scope, target, runtime và model
-├── testspecs/              # 8 kịch bản YAML
+├── testspecs/              # 9 kịch bản YAML
 ├── tests/                  # Kiểm thử tự động
 ├── third_party/            # Source upstream đã khóa revision và giấy phép
 ├── runtime/                # Database, evidence, báo cáo khi chạy
@@ -85,13 +85,13 @@ thực hiện theo [hướng dẫn demo](docs/DEMO_LIVE.md).
 
 ## Trạng thái hiện tại
 
-Phiên bản **0.3.1** đã bổ sung kiểm tra tham số, chống lặp và biên nhận sandbox cho
+Phiên bản **0.3.2** đã bổ sung kiểm tra tham số, chống lặp và biên nhận sandbox cho
 `write_email`. Kết quả kiểm thử ghi nhận ngày 12/11/2026: **129 passed, 1 skipped**;
 `pip check` không có lỗi phụ thuộc.
 
 Ba chế độ được ghi rõ trong báo cáo: `SIMULATION` (mô phỏng), `INTEGRATION_TEST`
 (graph thật với model kiểm thử) và `LIVE_LLM_LAB` (API LLM thật).
-Chưa nghiệm thu bằng API LLM thật; bài kiểm thử live đang được bỏ qua do thiếu cấu hình.
+Bài pytest live opt-in vẫn bỏ qua nếu thiếu cấu hình. Đã chạy thực nghiệm API riêng ngày 16/11, ghi ở phần đối chứng bên dưới.
 Chưa hỗ trợ Exploratory, nhiều tool call trong một lượt hoặc Gmail/Calendar thật.
 HITL hiện dùng chính sách duyệt/từ chối tự động trong lab.
 
@@ -102,3 +102,15 @@ HITL hiện dùng chính sách duyệt/từ chối tự động trong lab.
 - [Nguồn upstream và những thay đổi của wrapper](docs/LIVE_PROVENANCE.md)
 - [Nghiên cứu Execution Plane và hướng nâng cấp](docs/EXECUTION_RESEARCH.md)
 - [Kết quả kiểm thử](TEST_RESULTS.md) · [Danh sách đầy đủ các file](FILES.txt)
+
+- [Chạy source nhánh phuong và cấu hình trên Windows](docs/PHUONG_SETUP.md)
+
+## Đối chứng sạch / payload (v0.3.2)
+
+Chọn ASI01/ASI02 và bật **Chạy đối chứng sạch / payload**. Framework tự thêm ca sạch,
+reset riêng từng Attempt và hiển thị hai trace cùng chênh lệch trạng thái trong tab
+**Đối chứng sạch / payload**. Utility v2 yêu cầu đúng loại tác động của nhiệm vụ.
+
+Đã chạy hai cặp live bằng DeepSeek ngày 16/11: cả hai control pass, không ghi nhận
+vi phạm ở hai ca attack (0/2). Không suy rộng kết quả thành an toàn tổng quát.
+Xem [phương pháp và cách chạy](docs/PAIRED_EXPERIMENTS.md).

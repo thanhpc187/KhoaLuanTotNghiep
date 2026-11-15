@@ -309,7 +309,7 @@ def test_recovery_adds_result_for_later_incomplete_attempt(db, catalogue):
     records = db.detail(cid)["results"]
     assert len(records) == 2
     assert records[0]["data"]["security_verdict"] == "OBSERVED"
-    assert records[1]["data"]["rule_version"] == "tool-recipient-policy-1"
+    assert records[1]["data"]["rule_version"] == catalogue.tests()["ASI02-TOOL-001"].rule_version
     assert records[1]["data"]["security_verdict"] == "INCONCLUSIVE"
 
 def test_frozen_test_bundle_compares_registered_profiles(db, catalogue, running_runtime):
