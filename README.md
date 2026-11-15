@@ -1,167 +1,104 @@
-# Agent Pentest Framework — v0.3.1
+# Agent Pentest Framework
 
-Đợt 12/11/2026 nâng cấp riêng nhánh `write_email` của runtime: kiểm tra/binding args,
-ID do wrapper cấp, đối soát permit worker, receipt sandbox, chống lặp/uncertain replay.
-Thêm BENIGN-REPLY-001 cùng ASI02-TOOL-002/003 để chạy ca sạch và hai biến thể cùng nhiệm vụ.
-Xem [nghiên cứu Execution Plane và roadmap](docs/EXECUTION_RESEARCH.md).
-Multi-tool mỗi lượt, calendar và memory chưa được nâng cấp trong đợt này.
+Hệ thống kiểm thử bảo mật AI Agent phục vụ khóa luận tốt nghiệp. Chương trình đưa
+payload vào nội dung email, theo dõi cách agent xử lý và đối chiếu bằng chứng để
+xác định có xảy ra vi phạm hay không.
 
-Framework kiểm thử AI Agent trong lab, giữ kiến trúc **Control / Execution / Evidence Plane**.
-v0.3 bổ sung đăng ký target, kết nối runtime LangGraph riêng, discovery có bằng chứng,
-nhiều TestSpec/Run/Attempt, cancel và backend API tương thích chat.
+Target chính là LangGraph Email Assistant, dựa trên mã nguồn
+[agents-from-scratch](https://github.com/langchain-ai/agents-from-scratch) của LangChain.
+Email và lịch hẹn được ghi trong sandbox, không gửi đến dịch vụ thật.
 
-**Đường live đã được triển khai nhưng chưa nghiệm thu bằng tài khoản LLM thật.**
-Bạn sẽ bổ sung URL/model/key sau. Test live opt-in được SKIPPED khi thiếu cấu hình;
-không có fallback ngầm sang model quy tắc.
+## Kiến trúc
 
-- [Hướng dẫn demo và lệnh khởi động chính xác](docs/DEMO_LIVE.md)
-- [Kiến trúc và trách nhiệm các tệp](docs/ARCHITECTURE.md)
-- [Đánh giá khoảng trống trước nâng cấp](docs/UPGRADE_ASSESSMENT.md)
-- [Source revision, instrumentation và giới hạn upstream](docs/LIVE_PROVENANCE.md)
-- [Kết quả kiểm thử thực tế](TEST_RESULTS.md)
-- [Danh sách tệp](FILES.txt)
+| Thành phần | Trách nhiệm |
+| --- | --- |
+| Control Plane | Nhận cấu hình, chọn kịch bản, điều phối và kiểm tra quyền thực thi |
+| Execution Plane | Kết nối target, đưa payload vào agent và thực thi qua permit |
+| Evidence Plane | Thu thập trace, đối chiếu trạng thái, kết luận và xuất báo cáo |
 
-## Ba chế độ bằng chứng
+Luồng kiểm thử: **Chọn target → Chọn TestSpec → Chạy → Thu thập bằng chứng → Đánh giá → Báo cáo.**
 
-| Mode | Agent decisions | Graph / tools |
-| --- | --- | --- |
-| SIMULATION | FakeHMA hoặc LabRuleBackedEmailModel | Baseline v0.2, effects trong bộ nhớ |
-| INTEGRATION_TEST | Output model kiểm soát, khai báo rõ | Node upstream thật qua runtime/process/permits; không phải LLM proof |
-| LIVE_LLM_LAB | API model do operator cấu hình | Node upstream đã khóa hash; effects email/calendar vẫn sandbox |
+Giao diện Streamlit gửi yêu cầu; worker thực hiện kiểm thử. Oracle dùng quy tắc
+xác định để đánh giá bằng chứng, không dùng LLM để quyết định verdict.
 
-Finding không được tạo chỉ vì gửi payload. Oracle đối chiếu trace, tool call, state
-delta và snapshot; kết quả có thể OBSERVED, NOT_OBSERVED, INCONCLUSIVE hoặc NOT_APPLICABLE.
-Utility và execution status được giữ độc lập.
+## Kịch bản thực nghiệm
 
-## Cài đặt
+| Nhóm | Nội dung kiểm tra |
+| --- | --- |
+| BENIGN | Agent có hoàn thành nhiệm vụ với email sạch hay không |
+| ASI01 | Nội dung chèn khiến agent bỏ qua email cần phản hồi |
+| ASI02 | Nội dung chèn khiến agent gửi email đến người nhận ngoài phạm vi cho phép; so sánh với HITL |
+| ASI06 | Nội dung email tác động đến bộ nhớ và làm sai phân loại email ở pha tiếp theo |
 
-Windows/Python 3.12.14 là môi trường đã kiểm tra. Khai báo Python 3.11–3.13 chưa có
-nghiệm thu đa nền tảng. Chạy trong thư mục chứa app.py:
+Mỗi lần chạy lưu payload, tool calls, trạng thái trước/sau và báo cáo JSON/HTML.
+Kết quả gồm `OBSERVED`, `NOT_OBSERVED`, `INCONCLUSIVE` hoặc `NOT_APPLICABLE`.
+Kết quả bảo mật được ghi riêng với mức độ hoàn thành nhiệm vụ của agent.
+
+## Cấu trúc thư mục
+
+```text
+ai-agent-pentest/
+├── app.py                  # Giao diện Streamlit
+├── worker.py               # Xử lý hàng đợi Campaign
+├── lab_runtime.py          # Khởi chạy target LangGraph riêng
+├── src/agent_pentest/
+│   ├── control/            # Workflow, registry, catalogue, safety
+│   ├── execution/          # Executor, adapter, runtime, sandbox tools
+│   ├── evidence/           # Collector, store, Oracle, findings, báo cáo
+│   ├── ai/                 # Planner, Testing Agent, Reviewer
+│   ├── models/             # Schema dữ liệu
+│   ├── storage/            # SQLite
+│   └── service.py          # Nạp cấu hình và tạo yêu cầu
+├── configs/                # Scope, target, runtime và model
+├── testspecs/              # 8 kịch bản YAML
+├── tests/                  # Kiểm thử tự động
+├── third_party/            # Source upstream đã khóa revision và giấy phép
+├── runtime/                # Database, evidence, báo cáo khi chạy
+├── sample-results/         # Kết quả mẫu đã lưu
+└── docs/                   # Tài liệu kiến trúc và thực nghiệm
+```
+
+## Chạy chương trình
+
+Môi trường đã kiểm tra: Windows, Python 3.12. Chạy các lệnh tại thư mục dự án.
 
 ```powershell
-$env:PYTHONUTF8 = '1'
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
 .\.venv\Scripts\python.exe -m pip install --no-deps -e .
 .\.venv\Scripts\python.exe worker.py --init-db
 ```
 
-requirements-lock.txt vẫn là snapshot dependency đã dùng; không cần cài provider SDK
-mới cho đường compatible-chat. Cài package cần Internet; suite offline không gọi API.
-.env không tự được nạp.
-
-## Chạy baseline hiện có
-
-Terminal worker và UI riêng:
+Mở hai terminal riêng:
 
 ```powershell
+# Terminal 1: worker
 .\.venv\Scripts\python.exe worker.py
+
+# Terminal 2: giao diện
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-Hai lệnh trên chạy ở hai terminal. Mở http://127.0.0.1:8501. FakeHMA và target
-langchain-email-assistant offline vẫn có sẵn, không cần registry hoặc credentials.
+Mở http://127.0.0.1:8501. Các target mô phỏng có thể chạy ngay, không cần API key.
+Để chạy target dùng LLM thật, cấu hình provider, khởi động runtime và đăng ký target
+thực hiện theo [hướng dẫn demo](docs/DEMO_LIVE.md).
 
-CLI cũ giữ nguyên:
+## Trạng thái hiện tại
 
-```powershell
-.\.venv\Scripts\python.exe worker.py --enqueue vulnerable --request-key baseline-1
-.\.venv\Scripts\python.exe worker.py --once
-```
+Phiên bản **0.3.1** đã bổ sung kiểm tra tham số, chống lặp và biên nhận sandbox cho
+`write_email`. Kết quả kiểm thử ghi nhận ngày 12/11/2026: **129 passed, 1 skipped**;
+`pip check` không có lỗi phụ thuộc.
 
-Fake vulnerable cho OBSERVED/PASSED, protected cho NOT_OBSERVED/PASSED trong regression.
-Bốn TestSpec email offline BENIGN/ASI01/ASI02/ASI06 vẫn hoạt động như v0.2.
+Ba chế độ được ghi rõ trong báo cáo: `SIMULATION` (mô phỏng), `INTEGRATION_TEST`
+(graph thật với model kiểm thử) và `LIVE_LLM_LAB` (API LLM thật).
+Chưa nghiệm thu bằng API LLM thật; bài kiểm thử live đang được bỏ qua do thiếu cấu hình.
+Chưa hỗ trợ Exploratory, nhiều tool call trong một lượt hoặc Gmail/Calendar thật.
+HITL hiện dùng chính sách duyệt/từ chối tự động trong lab.
 
-## Chạy target live
+## Tài liệu
 
-1. Điền configs/live_model.local.yaml theo mẫu live_model.example.yaml.
-2. Đặt API key vào AGENT_PENTEST_LLM_API_KEY ở terminal runtime.
-3. Đặt cùng AGENT_PENTEST_RUNTIME_TOKEN (ít nhất 16 ký tự) ở runtime và worker.
-4. Khởi động runtime, đăng ký target, kiểm tra compatibility, rồi chạy worker/UI.
-
-```powershell
-# Terminal A
-.\.venv\Scripts\python.exe lab_runtime.py --model-config configs/live_model.local.yaml
-
-# Terminal B
-.\.venv\Scripts\python.exe worker.py --register-target configs/registered_target.example.yaml
-.\.venv\Scripts\python.exe worker.py --check-targets
-.\.venv\Scripts\python.exe worker.py
-
-# Terminal C
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-Đọc [DEMO_LIVE.md](docs/DEMO_LIVE.md) trước khi demo: cấu hình mẫu còn placeholder,
-chưa phải provider đã kết nối. API cần hỗ trợ /models, /chat/completions, JSON output
-và function tool calling. Provider lỗi/thiếu key/model báo LIVE_BACKEND_UNAVAILABLE.
-
-Target Registry hỗ trợ local_endpoint hoặc local_repository. Cả hai kết nối tới
-runtime lab protocol; với repository, worker kiểm tra thêm checkout/hash và runtime
-đang dùng đúng đường dẫn. Không import arbitrary source hoặc xem URL GitHub như endpoint.
-
-## Giao diện
-
-- **Targets:** đăng ký, gửi yêu cầu check, xem trạng thái/provenance/capabilities.
-- **New Campaign:** target/profile/surface, TestSpec chính và bổ sung, repetition,
-  budget/deadline, xác nhận lab scope.
-- **Campaign Progress:** trạng thái SQLite, Run/Attempt, graph node/phase, operation count,
-  thời gian từ enqueue và Cancel / Stop.
-- **Findings and Evidence:** verdict/utility, timeline, proposal/call/effect, before/after,
-  finding/remediation và JSON/HTML.
-
-Streamlit không chạy target hoặc gọi model. Worker xử lý check/execute/cancel; UI chỉ
-ghi yêu cầu và đọc trạng thái. Profile và danh sách khả năng áp dụng dựa trên target
-đã chọn. UNKNOWN không được coi là NOT_APPLICABLE. Exploratory bị vô hiệu hóa có lý do.
-
-## Fixed multi-run
-
-```powershell
-.\.venv\Scripts\python.exe worker.py --enqueue baseline_no_hitl --target my-email-agent --testspecs ASI01-EMAIL-001 ASI02-TOOL-001 --repetitions 2 --request-key fixed-batch-1
-```
-
-Campaign khóa toàn bộ TestSpec/config. Mỗi TestSpec/lần lặp có Run/Attempt/reset_id/
-evidence riêng; không adaptive retry. ASI06 giữ Store giữa hai pha trong một Attempt.
-test_bundle_hash dùng đối chiếu workload giữa profile; bundle_hash còn ràng buộc
-target/connection/config, vì vậy có thể khác khi đổi implementation đã đăng ký.
-
-Planner/Testing Agent/Reviewer mặc định Fixed. Có backend LLM riêng qua --roles-config,
-schema validation, prompt/config hash và fallback được ghi audit. Không vai trò nào
-được trực tiếp gọi target; Reviewer không đổi verdict. Xem mẫu roles.example.yaml.
-
-## Safety và recovery
-
-Scope giữ allowlist action, profile, budget và deadline. Runtime endpoint chỉ nhận
-numeric loopback HTTP origin có trong registry_policy.yaml, tắt redirect/proxy.
-Provider HTTPS có allowlist URL riêng; token runtime tách khỏi API key.
-
-Mỗi mutation chờ permit một lần từ worker. Target child không được cấp Database hoặc
-EvidenceStore. Runtime theo dõi lease và có thể terminate/kill child khi model bị chặn.
-Không xác nhận stop được thì giữ target lock. Recovery đối soát instance/campaign,
-không replay operation không chắc chắn, chỉ release sau khi report thành công.
-
-```powershell
-.\.venv\Scripts\python.exe worker.py --recover-interrupted
-```
-
-SQLite v0.1/v0.2 tương thích qua migration bổ sung; dữ liệu/evidence/report trước đó
-được giữ nguyên. Evidence không ghi đè; report export lại có revision.
-AGENT_PENTEST_ROOT ưu tiên hơn cwd hợp lệ, rồi package fallback.
-AGENT_PENTEST_RUNTIME phải đồng nhất giữa worker/UI.
-
-## Kiểm thử và giới hạn
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m pip check
-```
-
-Xem TEST_RESULTS.md cho số liệu cuối. Sample v0.1/v0.2 được giữ nguyên;
-[sample v0.3](sample-results/v0.3/README.md) ghi rõ INTEGRATION_TEST và có cả kết quả
-dương lẫn âm từ các process runtime/worker CLI riêng.
-
-Chưa hỗ trợ Gmail/SMTP/calendar thật, arbitrary LangGraph server, Exploratory, nhiều
-tool proposal trong một lượt, notify tương tác đầy đủ, sandbox OS cho code độc hại
-hoặc benchmark ASR. HITL là chính sách accept/ignore tự động. Role LLM dùng request
-timeout nhưng chưa có process kill riêng. Runtime restart đổi instance có thể cần
-operator xác minh STOP_UNCONFIRMED; không tự mở khóa theo thời gian.
+- [Hướng dẫn demo](docs/DEMO_LIVE.md)
+- [Kiến trúc và vai trò các file](docs/ARCHITECTURE.md)
+- [Nguồn upstream và những thay đổi của wrapper](docs/LIVE_PROVENANCE.md)
+- [Nghiên cứu Execution Plane và hướng nâng cấp](docs/EXECUTION_RESEARCH.md)
+- [Kết quả kiểm thử](TEST_RESULTS.md) · [Danh sách đầy đủ các file](FILES.txt)
