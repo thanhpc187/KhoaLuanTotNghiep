@@ -1,5 +1,6 @@
 approved_repository_roots:
   - third_party/agents_from_scratch
+  - upstream/agents-from-scratch
 allowed_runtime_endpoints:
   - http://127.0.0.1:8765
 allow_integration_test_runtime: false

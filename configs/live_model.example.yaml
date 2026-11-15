@@ -9,3 +9,6 @@ require_api_key: true
 temperature: 0.0
 max_tokens: 2048
 timeout_seconds: 45
+# Optional. DeepSeek enables thinking by default, which rejects tool_choice=required.
+# Set "disabled" for DeepSeek targets; omit for providers without this field.
+# thinking: disabled
